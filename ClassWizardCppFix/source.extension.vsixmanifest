@@ -8,11 +8,8 @@
     <PreviewImage>Resources/Icon.png</PreviewImage>
   </Metadata>
   <Installation>
-    <InstallationTarget Id="Microsoft.VisualStudio.Community" Version="[17.0, 18.0)">
+    <InstallationTarget Id="Microsoft.VisualStudio.Community" Version="[17.14,)">
       <ProductArchitecture>amd64</ProductArchitecture>
-    </InstallationTarget>
-    <InstallationTarget Id="Microsoft.VisualStudio.Community" Version="[17.0,)">
-      <ProductArchitecture>x86</ProductArchitecture>
     </InstallationTarget>
   </Installation>
   <Prerequisites>

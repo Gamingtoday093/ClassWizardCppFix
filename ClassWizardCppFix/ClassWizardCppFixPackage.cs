@@ -119,8 +119,8 @@ namespace ClassWizardCppFix
                     File.Move(otherClassFile, newOtherClassFile);
 
                     var result = new VSADDRESULT[1];
-                    project.AddItem(selectionItemid, VSADDITEMOPERATION.VSADDITEMOP_OPENFILE, newOtherClassFile, 0, Array.Empty<string>(), IntPtr.Zero, result);
-                    project.AddItem(selectionItemid, VSADDITEMOPERATION.VSADDITEMOP_OPENFILE, newFilePath, 0, Array.Empty<string>(), IntPtr.Zero, result);
+                    project.AddItem(selectionItemid, VSADDITEMOPERATION.VSADDITEMOP_OPENFILE, newOtherClassFile, 1, [newOtherClassFile], IntPtr.Zero, result);
+                    project.AddItem(selectionItemid, VSADDITEMOPERATION.VSADDITEMOP_OPENFILE, newFilePath, 1, [newFilePath], IntPtr.Zero, result);
 
                     project.RemoveItem(0, fileItemId, out _);
                     project.RemoveItem(0, otherFileItemId, out _);

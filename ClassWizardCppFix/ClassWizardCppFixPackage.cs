@@ -24,8 +24,6 @@ namespace ClassWizardCppFix
         private ProjectDocumentsEventSink FileEventHandler { get; } = new();
 
         private IVsMonitorSelection SelectionMonitor { get; set; }
-        private IVsRunningDocumentTable RunningDocuments { get; set; }
-        private IVsUIShellOpenDocument OpenDocument { get; set; }
 
         private static readonly string[] ClassFileExtensions = [ ".h", ".cpp" ];
         private string OtherClassFilePath { get; set; } = string.Empty;
@@ -36,8 +34,6 @@ namespace ClassWizardCppFix
             await JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
 
             SelectionMonitor = await this.GetServiceAsync<SVsShellMonitorSelection, IVsMonitorSelection>();
-            RunningDocuments = await this.GetServiceAsync<SVsRunningDocumentTable, IVsRunningDocumentTable>();
-            OpenDocument = await this.GetServiceAsync<SVsUIShellOpenDocument, IVsUIShellOpenDocument>();
 
             FileEventHandler.OnFileAdded += OnClassFileAdded;
             var fileTracker = await this.GetServiceAsync<SVsTrackProjectDocuments, IVsTrackProjectDocuments2>();
@@ -101,80 +97,66 @@ namespace ClassWizardCppFix
             _ = JoinableTaskFactory.RunAsync(async () =>
             {
                 await Task.Yield(); // Delay Until Next *Frame*
-                await JoinableTaskFactory.SwitchToMainThreadAsync();
+                await JoinableTaskFactory.SwitchToMainThreadAsync(DisposalToken);
 
-                var priority = new VSDOCUMENTPRIORITY[1];
-                project.IsDocumentInProject(filePath, out _, priority, out uint fileItemId);
-                if (!CloseAndSaveDocumentSilently(filePath))
-                    SaveDocumentSilently(filePath);
-
-                project.IsDocumentInProject(otherClassFile, out _, priority, out uint otherFileItemId);
-                if (!CloseAndSaveDocumentSilently(otherClassFile))
-                    SaveDocumentSilently(filePath);
-
-                TransferingFiles = true;
                 try
                 {
-                    File.Move(filePath, newFilePath);
-                    File.Move(otherClassFile, newOtherClassFile);
+                    var priority = new VSDOCUMENTPRIORITY[1];
+                    project.IsDocumentInProject(filePath, out _, priority, out uint fileItemId);
+                    await CloseAndSaveDocumentSilentlyAsync(filePath);
 
-                    var result = new VSADDRESULT[1];
-                    project.AddItem(selectionItemid, VSADDITEMOPERATION.VSADDITEMOP_OPENFILE, newOtherClassFile, 1, [newOtherClassFile], IntPtr.Zero, result);
-                    project.AddItem(selectionItemid, VSADDITEMOPERATION.VSADDITEMOP_OPENFILE, newFilePath, 1, [newFilePath], IntPtr.Zero, result);
+                    project.IsDocumentInProject(otherClassFile, out _, priority, out uint otherFileItemId);
+                    await CloseAndSaveDocumentSilentlyAsync(otherClassFile);
 
-                    project.RemoveItem(0, fileItemId, out _);
-                    project.RemoveItem(0, otherFileItemId, out _);
+                    TransferingFiles = true;
+                    try
+                    {
+                        File.Move(filePath, newFilePath);
+                        File.Move(otherClassFile, newOtherClassFile);
+
+                        var result = new VSADDRESULT[1];
+                        project.AddItem(selectionItemid, VSADDITEMOPERATION.VSADDITEMOP_OPENFILE, newOtherClassFile, 1, [newOtherClassFile], IntPtr.Zero, result);
+                        project.AddItem(selectionItemid, VSADDITEMOPERATION.VSADDITEMOP_OPENFILE, newFilePath, 1, [newFilePath], IntPtr.Zero, result);
+
+                        project.RemoveItem(0, fileItemId, out _);
+                        project.RemoveItem(0, otherFileItemId, out _);
+                    }
+                    finally
+                    {
+                        TransferingFiles = false;
+                    }
+
+                    string headerFile = Path.GetExtension(newFilePath) == ".h" ? newFilePath : newOtherClassFile;
+                    VsShellUtilities.TryOpenDocument(ServiceProvider.GlobalProvider, headerFile, VSConstants.LOGVIEWID.Primary_guid, out _, out _, out _);
                 }
-                finally
+                catch (Exception ex)
                 {
-                    TransferingFiles = false;
+                    await VS.MessageBox.ShowAsync($"ClassWizardCppFix, Unable to Move Files: {ex}");
                 }
-
-                #region Open Header File
-                Guid logicalView = VSConstants.LOGVIEWID.Primary_guid;
-                string headerFile = Path.GetExtension(newFilePath) == ".h" ? newFilePath : newOtherClassFile;
-                int openHR = OpenDocument.OpenDocumentViaProject(headerFile, ref logicalView, out _, out _, out _, out var frame);
-                if (openHR == VSConstants.S_OK) frame?.Show();
-                #endregion // Open Header File
             });
 
         ClearOtherClassFile:
             OtherClassFilePath = string.Empty;
         }
 
-        private bool CloseAndSaveDocumentSilently(string filePath)
+        private async Task CloseAndSaveDocumentSilentlyAsync(string filePath)
         {
-            ThreadHelper.ThrowIfNotOnUIThread();
+            await JoinableTaskFactory.SwitchToMainThreadAsync(DisposalToken);
 
             if (VsShellUtilities.IsDocumentOpen(ServiceProvider.GlobalProvider, filePath, Guid.Empty, out _, out _, out IVsWindowFrame frame))
-                return frame.CloseFrame((uint)__FRAMECLOSE.FRAMECLOSE_SaveIfDirty) == VSConstants.S_OK;
-
-            return false;
-        }
-
-        private bool SaveDocumentSilently(string filePath)
-        {
-            ThreadHelper.ThrowIfNotOnUIThread();
-
-            RunningDocuments.FindAndLockDocument((uint)_VSRDTFLAGS.RDT_NoLock, filePath, out _, out _, out IntPtr docDataPtr, out _);
-            try
             {
-                if (Marshal.GetObjectForIUnknown(docDataPtr) is IVsPersistDocData persistDocData)
-                {
-                    int saveHR = persistDocData.SaveDocData(
-                        VSSAVEFLAGS.VSSAVE_SilentSave,
-                        out _,
-                        out int canceled);
-
-                    return saveHR == VSConstants.S_OK && canceled == 0;
-                }
+                frame.CloseFrame((uint)__FRAMECLOSE.FRAMECLOSE_SaveIfDirty);
             }
-            finally
+            else if (ErrorHandler.Succeeded(VsShellUtilities.TryOpenDocument(ServiceProvider.GlobalProvider, filePath, VSConstants.LOGVIEWID.Primary_guid, out _, out _, out frame)))
             {
-                Marshal.Release(docDataPtr);
+                frame.ShowNoActivate();
+                await Task.Yield(); // Delay Until Next *Frame* as otherwise CloseFrame() might not Save properly
+                frame.CloseFrame((uint)__FRAMECLOSE.FRAMECLOSE_SaveIfDirty);
             }
-
-            return false;
+            else
+            {
+                VsShellUtilities.SaveFileIfDirty(ServiceProvider.GlobalProvider, filePath);
+            }
         }
     }
 }

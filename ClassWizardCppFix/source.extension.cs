@@ -12,7 +12,7 @@ namespace ClassWizardCppFix
         public const string Name = "Class Wizard C++ Fix";
         public const string Description = @"Moves the Class created by the Class Wizard to the selected Location for C++ Projects.";
         public const string Language = "en-US";
-        public const string Version = "1.2";
+        public const string Version = "1.3";
         public const string Author = "Gamingtoday093";
         public const string Tags = "";
         public const bool IsPreview = false;

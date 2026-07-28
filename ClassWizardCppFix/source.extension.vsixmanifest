@@ -2,8 +2,8 @@
 <PackageManifest Version="2.0.0" xmlns="http://schemas.microsoft.com/developer/vsx-schema/2011" xmlns:d="http://schemas.microsoft.com/developer/vsx-schema-design/2011">
   <Metadata>
     <Identity Id="ClassWizardCppFix.ab0e0ac1-9d37-42e0-97ef-fd674bf4455d" Version="1.2" Language="en-US" Publisher="Gamingtoday093" />
-    <DisplayName>ClassWizardCppFix</DisplayName>
-    <Description>Moves the Class created by the Class Wizard to the selected Location for Cpp Projects.</Description>
+    <DisplayName>Class Wizard C++ Fix</DisplayName>
+    <Description>Moves the Class created by the Class Wizard to the selected Location for C++ Projects.</Description>
     <Icon>Resources/Icon.png</Icon>
     <PreviewImage>Resources/Icon.png</PreviewImage>
   </Metadata>

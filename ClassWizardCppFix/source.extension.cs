@@ -9,8 +9,8 @@ namespace ClassWizardCppFix
     internal sealed partial class Vsix
     {
         public const string Id = "ClassWizardCppFix.ab0e0ac1-9d37-42e0-97ef-fd674bf4455d";
-        public const string Name = "ClassWizardCppFix";
-        public const string Description = @"Moves the Class created by the Class Wizard to the selected Location for Cpp Projects.";
+        public const string Name = "Class Wizard C++ Fix";
+        public const string Description = @"Moves the Class created by the Class Wizard to the selected Location for C++ Projects.";
         public const string Language = "en-US";
         public const string Version = "1.2";
         public const string Author = "Gamingtoday093";
